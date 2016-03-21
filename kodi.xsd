@@ -10,7 +10,7 @@
          $ mkdir ~/validation
          $ for file in <path_to_your_skin>/720p/*.xml; do java -jar ~/xsd11-validator.jar -if $file -sf ~/kodi.xsd 2> ~/validation/`basename $file`; done
          $ cd ~/validation
-         $ find . -size +0c -exec less {} \;
+         $ find . -size +0c -type f -exec less {} \;
          .... have fun fixing errors .... (or updating this and/or updating the skinning manual)
     -->
     <xs:element name="animation">
@@ -19,10 +19,22 @@
         <xs:alternative type="xs:error" />
     </xs:element>
 
+    <xs:element name="aspectratio">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="aspectratioType">
+                    <xs:attribute name="align" type="alignType" />
+                    <xs:attribute name="aligny" type="alignyType" />
+                    <xs:attribute name="scalediffuse" type="xs:boolean" />
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+
     <xs:element name="camera">
         <xs:complexType>
-            <xs:attribute name="x" type="xs:int" />
-            <xs:attribute name="y" type="xs:int" />
+            <xs:attribute name="x" type="xs:float" />
+            <xs:attribute name="y" type="xs:float" />
         </xs:complexType>
     </xs:element>
 
@@ -103,6 +115,18 @@
         </xs:complexType>
     </xs:element>
 
+    <xs:element name="test">
+        <xs:complexType>
+        <xs:sequence minOccurs="0" maxOccurs="unbounded">
+            <xs:element ref="width" />
+        </xs:sequence>
+        </xs:complexType>
+    </xs:element>    
+    
+    <xs:element name="width" type="heightWidthType" />
+
+    <xs:element name="height" type="heightWidthType" />
+    
     <xs:element name="include">
         <xs:alternative test="@name" type="includeDefineType" />
         <xs:alternative test="@file" type="includeFileType" />
@@ -164,8 +188,8 @@
                 <xs:element name="onload" type="actionType" minOccurs="0" maxOccurs="unbounded" />
                 <xs:element name="onunload" type="actionType" minOccurs="0" maxOccurs="unbounded" />
                 <xs:element name="defaultcontrol" type="defaultControlType" minOccurs="0" maxOccurs="1" />
-                <xs:element name="allowoverlay" type="xs:boolean" minOccurs="0" maxOccurs="1" />
                 <xs:element name="backgroundcolor" type="colorType" minOccurs="0" maxOccurs="1" />
+                <xs:element name="menucontrol" type="xs:string" minOccurs="0" maxOccurs="1" />
                 <xs:element name="views" type="xs:string" minOccurs="0" maxOccurs="1">
                     <xs:annotation>
                         <xs:documentation xml:lang="en">
@@ -489,8 +513,10 @@
             <xs:group ref="groupcontrolType" />
             <xs:element name="texturefocus" type="textureType"/>
             <xs:element name="texturenofocus" type="textureType"/>
+            <xs:element name="textureradioon" type="textureType"/>
             <xs:element name="textureradioonfocus" type="textureType"/>
             <xs:element name="textureradioonnofocus" type="textureType"/>
+            <xs:element name="textureradiooff" type="textureType"/>
             <xs:element name="textureradioofffocus" type="textureType"/>
             <xs:element name="textureradiooffnofocus" type="textureType"/>
             <xs:element ref="label" />
@@ -674,10 +700,11 @@
 
     <xs:complexType name="heightWidthType">
         <xs:simpleContent>
-            <xs:extension base="xs:string">
+            <xs:extension base="positionType">
                 <!-- These are actually only valid if the value of the element is auto -->
-                <xs:attribute name="min" type="xs:unsignedInt" />
-                <xs:attribute name="max" type="xs:unsignedInt" />
+                <xs:attribute name="min" type="positionType" />
+                <xs:attribute name="max" type="positionType" />
+                <xs:assert test="not((@min or @max)) or ((@min or @max) and $value eq 'auto')" />
             </xs:extension>
         </xs:simpleContent>
     </xs:complexType>
@@ -784,7 +811,7 @@
     <xs:simpleType name="colorType">
         <xs:annotation>
             <xs:documentation xml:lang="en">
-        Color defined as either a name or AARRGGBB value. The list provided are the default names available in XBMC but it`s possible to define others.
+        Color defined as either a name or AARRGGBB value. The list provided are the default names available in Kodi but it`s possible to define others.
             </xs:documentation>
         </xs:annotation>
         <xs:union>
@@ -987,6 +1014,12 @@
         </xs:restriction>
     </xs:simpleType>
 
+    <xs:simpleType name="depthType">
+        <xs:restriction base="xs:string">
+            <xs:pattern value="-?1|0(\.\d+)?" />
+        </xs:restriction>
+    </xs:simpleType>
+    
     <xs:simpleType name="easingType">
         <xs:restriction base="xs:string">
             <xs:enumeration value="in"/>
@@ -1019,6 +1052,7 @@
         <xs:restriction base="xs:string">
             <!--  If an "r" is included (eg 180r) then the measurement is taken from the parent's right edge (in the left direction). -->
             <xs:pattern value="-?\d+(\.\d+)?(r|%)?" />
+            <xs:pattern value="auto" />
         </xs:restriction>
     </xs:simpleType>
 
@@ -1074,61 +1108,85 @@
         <!-- This contains MANY things that aren't applicable to everything, I'll go through it eventually and sort it out -->
         <xs:choice>
             <xs:element ref="include" minOccurs="0" maxOccurs="unbounded" />
+            <xs:element ref="control" minOccurs="0" maxOccurs="unbounded" />
+            <xs:element ref="depth" type="depthType" minOccurs="0" maxOccurs="1" />
             <xs:element name="description" type="xs:string" minOccurs="0" maxOccurs="1" />
             <xs:element name="type" type="xs:string" minOccurs="0" maxOccurs="1" />
             <xs:element name="id" type="xs:string" minOccurs="0" maxOccurs="1" />
             <xs:element name="posx" type="positionType" minOccurs="0" maxOccurs="1" />
-            <xs:element name="left" type="positionType" minOccurs="0" maxOccurs="1" />
             <xs:element name="posy" type="positionType" minOccurs="0" maxOccurs="1" />
+            <xs:element name="left" type="positionType" minOccurs="0" maxOccurs="1" />
+            <xs:element name="right" type="positionType" minOccurs="0" maxOccurs="1" />
             <xs:element name="top" type="positionType" minOccurs="0" maxOccurs="1" />
-            <xs:element name="right" type="xs:unsignedInt" minOccurs="0" maxOccurs="1" />
-            <xs:element name="bottom" type="xs:unsignedInt" minOccurs="0" maxOccurs="1" />
-            <xs:element name="width" type="heightWidthType" minOccurs="0" maxOccurs="1" />
-            <xs:element name="height" type="heightWidthType" minOccurs="0" maxOccurs="1" />
+            <xs:element name="bottom" type="positionType" minOccurs="0" maxOccurs="1" />
+            <xs:element name="centerleft" type="positionType" minOccurs="0" maxOccurs="1" />
+            <xs:element name="centerright" type="positionType" minOccurs="0" maxOccurs="1" />
+            <xs:element name="centertop" type="positionType" minOccurs="0" maxOccurs="1" />
+            <xs:element name="centerbottom" type="positionType" minOccurs="0" maxOccurs="1" />
+            <xs:element ref="width" minOccurs="0" maxOccurs="1" />
+            <xs:element ref="height" minOccurs="0" maxOccurs="1" />
             <xs:element ref="visible" minOccurs="0" maxOccurs="unbounded" />
             <xs:element ref="animation" minOccurs="0" maxOccurs="unbounded" />
             <xs:element ref="camera" minOccurs="0" maxOccurs="1" />
             <xs:element name="colordiffuse" type="colorType" minOccurs="0" maxOccurs="1" />
+
+            <!-- Tags available to focusable controls -->
             <xs:element name="onup" type="actionType" minOccurs="0" maxOccurs="1" />
             <xs:element name="ondown" type="actionType" minOccurs="0" maxOccurs="1" />
             <xs:element name="onleft" type="actionType" minOccurs="0" maxOccurs="1" />
             <xs:element name="onright" type="actionType" minOccurs="0" maxOccurs="1" />
+            <xs:element name="oninfo" type="actionType" minOccurs="0" maxOccurs="1" />
             <xs:element name="hitrect" type="hitrectType" minOccurs="0" maxOccurs="1" />
             <xs:element name="enable" type="xs:string" minOccurs="0" maxOccurs="1" />
             <xs:element name="pulseonselect" type="xs:boolean" minOccurs="0" maxOccurs="1" />
-            <xs:element ref="control" minOccurs="0" maxOccurs="unbounded" />
+
+            <!-- Misc tags that are almost global? -->
             <xs:element name="align" type="xs:string" minOccurs="0" maxOccurs="1" />
             <xs:element name="aligny" type="xs:string" minOccurs="0" maxOccurs="1" />
-            <xs:element name="number" type="xs:string" minOccurs="0" maxOccurs="1" />
-            <xs:element name="angle" type="xs:string" minOccurs="0" maxOccurs="1" />
-            <xs:element name="font" type="xs:string" minOccurs="0" maxOccurs="1" />
             <xs:element name="textcolor" type="colorType" minOccurs="0" maxOccurs="1" />
-            <xs:element name="shadowcolor" type="colorType" minOccurs="0" maxOccurs="1" />
-            <xs:element name="scrollspeed" type="xs:string" minOccurs="0" maxOccurs="1" />
-            <xs:element name="scrollsuffix" type="xs:string" minOccurs="0" maxOccurs="1" />
-            <xs:element name="textoffsetx" type="xs:string" minOccurs="0" maxOccurs="1" />
-            <xs:element name="aspectratio" minOccurs="0" maxOccurs="1">
-                <xs:complexType>
-                    <xs:simpleContent>
-                        <xs:extension base="aspectratioType">
-                            <xs:attribute name="align" type="alignType" />
-                            <xs:attribute name="aligny" type="alignyType" />
-                            <xs:attribute name="scalediffuse" type="xs:boolean" />
-                        </xs:extension>
-                    </xs:simpleContent>
-                </xs:complexType>
-            </xs:element>
             <xs:element name="focusedcolor" type="colorType" minOccurs="0" maxOccurs="1" />
             <xs:element name="disabledcolor" type="colorType" minOccurs="0" maxOccurs="1" />
+            <xs:element name="shadowcolor" type="colorType" minOccurs="0" maxOccurs="1" />
+            <xs:element name="textoffsetx" type="xs:string" minOccurs="0" maxOccurs="1" />
             <xs:element name="textoffsety" type="xs:string" minOccurs="0" maxOccurs="1" />
             <xs:element name="textwidth" type="xs:string" minOccurs="0" maxOccurs="1" />
+            <xs:element name="scrollspeed" type="xs:string" minOccurs="0" maxOccurs="1" />
+            <xs:element name="scrollsuffix" type="xs:string" minOccurs="0" maxOccurs="1" />
+            <xs:element name="angle" type="xs:string" minOccurs="0" maxOccurs="1" />
+            <xs:element name="font" type="xs:string" minOccurs="0" maxOccurs="1" />
+
+            <xs:element ref="aspectratio" minOccurs="0" maxOccurs="1" />
             <xs:element name="onback" type="actionType" minOccurs="0" maxOccurs="1" />
             <xs:element name="controloffsetx" type="xs:string" minOccurs="0" maxOccurs="1" />
             <xs:element name="controloffsety" type="xs:string" minOccurs="0" maxOccurs="1" />
             <xs:element name="highlightcolor" type="colorType" minOccurs="0" maxOccurs="1" />
+            <!-- This is a special element that is like an infolabel, but only accepts a number to lookup in the strings -->
+            <xs:element name="number" type="xs:unsignedInt" minOccurs="0" maxOccurs="1" />
         </xs:choice>
     </xs:group>
 
+    <xs:group name="groupcontrolLabel">
+        <xs:choice>
+            <!-- A group of elements that apply to all controls with labels -->
+            <!-- Not used yet -->
+            <xs:element name="align" type="xs:string" minOccurs="0" maxOccurs="1" />
+            <xs:element name="aligny" type="xs:string" minOccurs="0" maxOccurs="1" />
+            <xs:element name="textcolor" type="colorType" minOccurs="0" maxOccurs="1" />
+            <xs:element name="focusedcolor" type="colorType" minOccurs="0" maxOccurs="1" />
+            <xs:element name="disabledcolor" type="colorType" minOccurs="0" maxOccurs="1" />
+            <xs:element name="shadowcolor" type="colorType" minOccurs="0" maxOccurs="1" />
+            <xs:element name="selectedcolor" type="colorType" />
+            <xs:element name="invalidcolor" type="colorType" />
+            <xs:element name="textoffsetx" type="xs:string" minOccurs="0" maxOccurs="1" />
+            <xs:element name="textoffsety" type="xs:string" minOccurs="0" maxOccurs="1" />
+            <xs:element name="textwidth" type="xs:string" minOccurs="0" maxOccurs="1" />
+            <xs:element name="scrollspeed" type="xs:string" minOccurs="0" maxOccurs="1" />
+            <xs:element name="scrollsuffix" type="xs:string" minOccurs="0" maxOccurs="1" />
+            <xs:element name="angle" type="xs:string" minOccurs="0" maxOccurs="1" />
+            <xs:element name="font" type="xs:string" minOccurs="0" maxOccurs="1" />
+        </xs:choice>
+    </xs:group>
+    
     <xs:group name="groupcontrolTypeList">
         <xs:choice>
             <xs:group ref="groupcontrolType" maxOccurs="unbounded" minOccurs="0"/>
